@@ -143,7 +143,11 @@ defmodule Receptionist.Scheduling do
       ** (Ecto.NoResultsError)
 
   """
-  def get_event!(id), do: Repo.get!(Event, id)
+  def get_event!(id) do
+    Event
+    |> Repo.get!(id)
+    |> Repo.preload(:contacts)
+  end
 
   @doc """
   Creates a event.

@@ -18,6 +18,7 @@ defmodule ReceptionistWeb.Router do
     pipe_through :browser
 
     live "/", CalendarLive, :index
+    live "/events/:id", CalendarLive, :show
   end
 
   # Other scopes may use custom stacks.
