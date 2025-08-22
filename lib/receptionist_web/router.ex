@@ -17,7 +17,7 @@ defmodule ReceptionistWeb.Router do
   scope "/", ReceptionistWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", CalendarLive, :index
   end
 
   # Other scopes may use custom stacks.

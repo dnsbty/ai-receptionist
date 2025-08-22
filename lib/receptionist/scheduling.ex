@@ -10,6 +10,19 @@ defmodule Receptionist.Scheduling do
   alias Receptionist.Scheduling.Event
 
   @doc """
+  Returns events for a date range.
+  """
+  def list_events_in_range(start_datetime, end_datetime) do
+    query = 
+      from e in Event,
+      where: e.start_time < ^end_datetime and e.end_time > ^start_datetime,
+      order_by: [asc: e.start_time],
+      preload: [:contacts]
+    
+    Repo.all(query)
+  end
+
+  @doc """
   Returns the list of contacts.
 
   ## Examples
