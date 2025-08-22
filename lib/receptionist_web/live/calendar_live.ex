@@ -286,21 +286,63 @@ defmodule ReceptionistWeb.CalendarLive do
     Date.utc_today()
   end
 
-  defp date_to_datetime(date, _timezone, :start) do
-    {:ok, datetime} = DateTime.new(date, ~T[00:00:00])
-    datetime
+  defp date_to_datetime(date, timezone, :start) do
+    # Create the start of day in the user's timezone, then convert to UTC
+    {:ok, naive} = NaiveDateTime.new(date, ~T[00:00:00])
+
+    case DateTime.from_naive(naive, timezone) do
+      {:ok, local_dt} ->
+        case DateTime.shift_zone(local_dt, "Etc/UTC") do
+          {:ok, utc_dt} ->
+            utc_dt
+
+          {:error, _} ->
+            # Fallback if timezone conversion fails
+            {:ok, dt} = DateTime.new(date, ~T[00:00:00])
+            dt
+        end
+
+      {:error, _} ->
+        # Fallback if timezone conversion fails
+        {:ok, dt} = DateTime.new(date, ~T[00:00:00])
+        dt
+    end
   end
 
-  defp date_to_datetime(date, _timezone, :end) do
-    {:ok, datetime} = DateTime.new(date, ~T[23:59:59])
-    datetime
+  defp date_to_datetime(date, timezone, :end) do
+    # Create the end of day in the user's timezone, then convert to UTC
+    {:ok, naive} = NaiveDateTime.new(date, ~T[23:59:59])
+
+    case DateTime.from_naive(naive, timezone) do
+      {:ok, local_dt} ->
+        case DateTime.shift_zone(local_dt, "Etc/UTC") do
+          {:ok, utc_dt} ->
+            utc_dt
+
+          {:error, _} ->
+            # Fallback if timezone conversion fails
+            {:ok, dt} = DateTime.new(date, ~T[23:59:59])
+            dt
+        end
+
+      {:error, _} ->
+        # Fallback if timezone conversion fails
+        {:ok, dt} = DateTime.new(date, ~T[23:59:59])
+        dt
+    end
   end
 
-  defp format_time(datetime, _timezone) do
-    # For now, just format as UTC
-    # In production, you'd want proper timezone conversion
-    hour = datetime.hour
-    minute = datetime.minute |> Integer.to_string() |> String.pad_leading(2, "0")
+  defp format_time(datetime, timezone) do
+    # Convert from UTC to the user's timezone for display
+    local_datetime =
+      case DateTime.shift_zone(datetime, timezone) do
+        {:ok, local} -> local
+        # Fallback to UTC if timezone conversion fails
+        {:error, _} -> datetime
+      end
+
+    hour = local_datetime.hour
+    minute = local_datetime.minute |> Integer.to_string() |> String.pad_leading(2, "0")
 
     {hour_12, period} =
       cond do
@@ -321,22 +363,29 @@ defmodule ReceptionistWeb.CalendarLive do
     Calendar.strftime(date, "%a %b %-d")
   end
 
-  defp calculate_event_position(event, _timezone) do
-    # Using UTC times for now
-    start_time = event.start_time
-    end_time = event.end_time
+  defp calculate_event_position(event, timezone) do
+    # Convert UTC times to local timezone for display positioning
+    local_start =
+      case DateTime.shift_zone(event.start_time, timezone) do
+        {:ok, local} -> local
+        {:error, _} -> event.start_time
+      end
 
-    start_hour = start_time.hour + start_time.minute / 60
-    end_hour = end_time.hour + end_time.minute / 60
+    local_end =
+      case DateTime.shift_zone(event.end_time, timezone) do
+        {:ok, local} -> local
+        {:error, _} -> event.end_time
+      end
 
-    # Calculate position as percentage of day (6am to 10pm = 16 hours)
-    # 6am
-    day_start = 6
-    # 10pm
-    day_end = 22
+    start_hour = local_start.hour + local_start.minute / 60
+    end_hour = local_end.hour + local_end.minute / 60
+
+    # Calculate position as percentage of full 24-hour day
+    day_start = 0
+    day_end = 24
     day_duration = day_end - day_start
 
-    top = max((start_hour - day_start) / day_duration * 100, 0)
+    top = (start_hour - day_start) / day_duration * 100
     height = (end_hour - start_hour) / day_duration * 100
 
     {top, height}
@@ -522,7 +571,7 @@ defmodule ReceptionistWeb.CalendarLive do
                   <%!-- Time grid and events --%>
                   <div class="relative">
                     <%!-- Hour lines --%>
-                    <%= for hour <- 6..21 do %>
+                    <%= for hour <- 0..23 do %>
                       <div class="relative border-b border-gray-100 dark:border-gray-700 h-12">
                         <span class="absolute left-2 -top-2 text-xs text-gray-400 dark:text-gray-500 w-12">
                           {format_hour(hour)}
