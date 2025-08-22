@@ -64,6 +64,9 @@ defmodule Receptionist.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.2"},
+      {:ex_phone_number, "~> 0.4"},
+
+      # Start at the end so that everything else is ready first
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"}
     ]
@@ -82,8 +85,9 @@ defmodule Receptionist.MixProject do
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["tailwind receptionist", "esbuild receptionist"],
+      "assets.build": ["cmd --cd assets npm ci", "tailwind receptionist", "esbuild receptionist"],
       "assets.deploy": [
+        "cmd --cd assets npm ci",
         "tailwind receptionist --minify",
         "esbuild receptionist --minify",
         "phx.digest"

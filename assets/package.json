@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "libphonenumber-js": "^1.12.13",
+    "topbar": "^3.0.0"
+  }
+}

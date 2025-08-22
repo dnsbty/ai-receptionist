@@ -3,6 +3,7 @@ defmodule ReceptionistWeb.ContactsLive do
 
   alias Receptionist.Scheduling
   alias Receptionist.Scheduling.Contact
+  import ReceptionistWeb.PhoneHelper
 
   @impl true
   def mount(_params, _session, socket) do
@@ -45,7 +46,9 @@ defmodule ReceptionistWeb.ContactsLive do
 
       :edit ->
         contact = Scheduling.get_contact!(params["id"])
-        changeset = Scheduling.change_contact(contact)
+        # Format the phone number for display in the form
+        formatted_contact = Map.put(contact, :phone_number, format_phone(contact.phone_number))
+        changeset = Scheduling.change_contact(formatted_contact)
 
         {:noreply,
          socket
@@ -151,7 +154,7 @@ defmodule ReceptionistWeb.ContactsLive do
                         </div>
                       </div>
                       <div class="text-sm text-gray-500 dark:text-gray-400">
-                        {contact.phone_number}
+                        {format_phone(contact.phone_number)}
                       </div>
                     </div>
                   </.link>
@@ -229,7 +232,7 @@ defmodule ReceptionistWeb.ContactsLive do
                 <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</dt>
                   <dd class="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                    {@contact.phone_number}
+                    {format_phone(@contact.phone_number)}
                   </dd>
                 </div>
               </dl>
@@ -307,7 +310,7 @@ defmodule ReceptionistWeb.ContactsLive do
                     <.input field={@form[:email]} type="email" label="Email" />
                   </div>
                   <div class="sm:col-span-2">
-                    <.input field={@form[:phone_number]} type="text" label="Phone Number" />
+                    <.input field={@form[:phone_number]} type="tel" label="Phone Number" />
                   </div>
                 </div>
 

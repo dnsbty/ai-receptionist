@@ -1,6 +1,7 @@
 defmodule ReceptionistWeb.CalendarLive do
   use ReceptionistWeb, :live_view
   alias Receptionist.Scheduling
+  import ReceptionistWeb.PhoneHelper
 
   @impl true
   def mount(_params, _session, socket) do
@@ -523,7 +524,7 @@ defmodule ReceptionistWeb.CalendarLive do
                   <div class="text-sm text-gray-600 dark:text-gray-400">
                     <span class="font-medium">{contact.first_name} {contact.last_name}</span>
                     <div class="text-xs text-gray-500 dark:text-gray-500">
-                      {contact.email} • {contact.phone_number}
+                      {contact.email} • {format_phone(contact.phone_number)}
                     </div>
                   </div>
                 <% end %>

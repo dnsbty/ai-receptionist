@@ -17,13 +17,13 @@ alias Receptionist.Scheduling.{Event, Contact}
 Receptionist.Repo.delete_all(Event)
 Receptionist.Repo.delete_all(Contact)
 
-# Create contacts
+# Create contacts with realistic US phone numbers
 {:ok, john} =
   Scheduling.create_contact(%{
     first_name: "John",
     last_name: "Doe",
     email: "john.doe@example.com",
-    phone_number: "555-1234"
+    phone_number: "(415) 555-1234"
   })
 
 {:ok, jane} =
@@ -31,7 +31,7 @@ Receptionist.Repo.delete_all(Contact)
     first_name: "Jane",
     last_name: "Smith",
     email: "jane.smith@example.com",
-    phone_number: "555-5678"
+    phone_number: "415-555-5678"
   })
 
 {:ok, bob} =
@@ -39,7 +39,7 @@ Receptionist.Repo.delete_all(Contact)
     first_name: "Bob",
     last_name: "Johnson",
     email: "bob.johnson@example.com",
-    phone_number: "555-9012"
+    phone_number: "4155559012"
   })
 
 {:ok, alice} =
@@ -47,7 +47,7 @@ Receptionist.Repo.delete_all(Contact)
     first_name: "Alice",
     last_name: "Williams",
     email: "alice.williams@example.com",
-    phone_number: "555-3456"
+    phone_number: "+14155553456"
   })
 
 {:ok, charlie} =
@@ -55,7 +55,7 @@ Receptionist.Repo.delete_all(Contact)
     first_name: "Charlie",
     last_name: "Brown",
     email: "charlie.brown@example.com",
-    phone_number: "555-7890"
+    phone_number: "415.555.7890"
   })
 
 # Get today's date in UTC

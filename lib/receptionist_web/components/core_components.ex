@@ -226,6 +226,30 @@ defmodule ReceptionistWeb.CoreComponents do
     """
   end
 
+  def input(%{type: "tel"} = assigns) do
+    ~H"""
+    <div class="fieldset mb-2">
+      <label>
+        <span :if={@label} class="label mb-1">{@label}</span>
+        <input
+          type={@type}
+          name={@name}
+          id={@id}
+          value={Phoenix.HTML.Form.normalize_value(@type, @value)}
+          class={[
+            @class || "w-full input",
+            @errors != [] && (@error_class || "input-error")
+          ]}
+          phx-hook="PhoneInput"
+          maxlength="14"
+          {@rest}
+        />
+      </label>
+      <.error :for={msg <- @errors}>{msg}</.error>
+    </div>
+    """
+  end
+
   def input(%{type: "textarea"} = assigns) do
     ~H"""
     <div class="fieldset mb-2">
