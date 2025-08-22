@@ -298,7 +298,9 @@ defmodule ReceptionistWeb.CalendarLive do
                         <div>
                           <p class="font-medium text-gray-900 dark:text-white">{event.name}</p>
                           <%= if event.description do %>
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{event.description}</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              {event.description}
+                            </p>
                           <% end %>
                         </div>
                         <div class="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap ml-4">
@@ -342,7 +344,9 @@ defmodule ReceptionistWeb.CalendarLive do
                           {format_date_short(date)}
                         </div>
                         <%= if is_today?(date) do %>
-                          <div class="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1">Today</div>
+                          <div class="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1">
+                            Today
+                          </div>
                         <% end %>
                       </div>
                     <% end %>
@@ -358,7 +362,8 @@ defmodule ReceptionistWeb.CalendarLive do
                         </span>
                         <div class="grid grid-cols-7 ml-16 h-full">
                           <%= for _ <- 1..7 do %>
-                            <div class="border-r border-gray-100 dark:border-gray-700 last:border-r-0"></div>
+                            <div class="border-r border-gray-100 dark:border-gray-700 last:border-r-0">
+                            </div>
                           <% end %>
                         </div>
                       </div>
@@ -400,7 +405,10 @@ defmodule ReceptionistWeb.CalendarLive do
         <div class="lg:hidden fixed inset-0 z-50 bg-white dark:bg-gray-900">
           <div class="flex flex-col h-full">
             <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-              <.link patch={~p"/"} class="p-2 -ml-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+              <.link
+                patch={~p"/"}
+                class="p-2 -ml-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              >
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     stroke-linecap="round"
@@ -422,10 +430,17 @@ defmodule ReceptionistWeb.CalendarLive do
         <%!-- Desktop: Modal overlay --%>
         <div class="hidden lg:block fixed inset-0 z-50 overflow-y-auto">
           <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm" phx-click="close_modal"></div>
+            <div
+              class="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm"
+              phx-click="close_modal"
+            >
+            </div>
             <div class="relative bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-xl">
               <div class="absolute top-4 right-4">
-                <.link patch={~p"/"} class="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400">
+                <.link
+                  patch={~p"/"}
+                  class="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400"
+                >
                   <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       stroke-linecap="round"

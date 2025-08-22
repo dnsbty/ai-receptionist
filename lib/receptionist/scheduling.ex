@@ -13,26 +13,64 @@ defmodule Receptionist.Scheduling do
   Returns events for a date range.
   """
   def list_events_in_range(start_datetime, end_datetime) do
-    query = 
+    query =
       from e in Event,
-      where: e.start_time < ^end_datetime and e.end_time > ^start_datetime,
-      order_by: [asc: e.start_time],
-      preload: [:contacts]
-    
+        where: e.start_time < ^end_datetime and e.end_time > ^start_datetime,
+        order_by: [asc: e.start_time],
+        preload: [:contacts]
+
     Repo.all(query)
   end
 
   @doc """
-  Returns the list of contacts.
+  Returns paginated contacts with optional search.
 
   ## Examples
 
       iex> list_contacts()
       [%Contact{}, ...]
+      
+      iex> list_contacts(search: "john", page: 2)
+      %{contacts: [...], page: 2, ...}
 
   """
-  def list_contacts do
-    Repo.all(Contact)
+  def list_contacts(opts \\ []) do
+    search = Keyword.get(opts, :search, "")
+    page = Keyword.get(opts, :page, 1)
+    per_page = Keyword.get(opts, :per_page, 25)
+
+    query =
+      from c in Contact,
+        order_by: [asc: c.last_name, asc: c.first_name]
+
+    query =
+      if search != "" do
+        search_term = "%#{String.downcase(search)}%"
+
+        from c in query,
+          where:
+            like(fragment("LOWER(? || ' ' || ?)", c.first_name, c.last_name), ^search_term) or
+              like(fragment("LOWER(?)", c.email), ^search_term) or
+              like(fragment("LOWER(?)", c.phone_number), ^search_term)
+      else
+        query
+      end
+
+    total_count = Repo.aggregate(query, :count)
+
+    contacts =
+      query
+      |> limit(^per_page)
+      |> offset(^((page - 1) * per_page))
+      |> Repo.all()
+
+    %{
+      contacts: contacts,
+      page: page,
+      per_page: per_page,
+      total_count: total_count,
+      total_pages: ceil(total_count / per_page)
+    }
   end
 
   @doc """
@@ -50,6 +88,15 @@ defmodule Receptionist.Scheduling do
 
   """
   def get_contact!(id), do: Repo.get!(Contact, id)
+
+  @doc """
+  Gets a single contact with events preloaded.
+  """
+  def get_contact_with_events!(id) do
+    Contact
+    |> Repo.get!(id)
+    |> Repo.preload(events: from(e in Event, order_by: [desc: e.start_time]))
+  end
 
   @doc """
   Creates a contact.

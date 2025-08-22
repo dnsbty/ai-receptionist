@@ -19,6 +19,10 @@ defmodule ReceptionistWeb.Router do
 
     live "/", CalendarLive, :index
     live "/events/:id", CalendarLive, :show
+
+    live "/contacts", ContactsLive, :index
+    live "/contacts/:id", ContactsLive, :show
+    live "/contacts/:id/edit", ContactsLive, :edit
   end
 
   # Other scopes may use custom stacks.
