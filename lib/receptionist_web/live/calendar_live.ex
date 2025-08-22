@@ -395,6 +395,24 @@ defmodule ReceptionistWeb.CalendarLive do
     Date.compare(date, Date.utc_today()) == :eq
   end
 
+  defp is_business_hour?(date, hour) do
+    day_of_week = Date.day_of_week(date)
+
+    case day_of_week do
+      # Monday through Friday (1-5): 8am-6pm
+      day when day in 1..5 ->
+        hour >= 8 and hour < 18
+
+      # Saturday (6): 10am-4pm
+      6 ->
+        hour >= 10 and hour < 16
+
+      # Sunday (7): Closed
+      7 ->
+        false
+    end
+  end
+
   defp filter_contacts(contacts, search_term, selected_ids) do
     search_term = String.downcase(search_term)
 
@@ -577,8 +595,19 @@ defmodule ReceptionistWeb.CalendarLive do
                           {format_hour(hour)}
                         </span>
                         <div class="grid grid-cols-7 ml-16 h-full">
-                          <%= for _ <- 1..7 do %>
-                            <div class="border-r border-gray-100 dark:border-gray-700 last:border-r-0">
+                          <%= for {date, day_index} <- Enum.with_index(get_week_dates(@current_date)) do %>
+                            <% is_business_hour = is_business_hour?(date, hour) %>
+                            <div class={[
+                              "border-r border-gray-100 dark:border-gray-700 last:border-r-0 relative",
+                              !is_business_hour && "bg-gray-50 dark:bg-gray-800"
+                            ]}>
+                              <%= if !is_business_hour do %>
+                                <div
+                                  class="absolute inset-0 opacity-70 dark:opacity-50"
+                                  style="background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(156, 163, 175, 0.35) 2px, rgba(156, 163, 175, 0.5) 4px);"
+                                >
+                                </div>
+                              <% end %>
                             </div>
                           <% end %>
                         </div>
