@@ -13,6 +13,11 @@ defmodule ReceptionistWeb.CalendarLive do
       |> assign(:timezone, timezone)
       |> assign(:current_date, today)
       |> assign(:selected_event, nil)
+      |> assign(:show_create_modal, false)
+      |> assign(:all_contacts, list_all_contacts())
+      |> assign(:selected_contact_ids, [])
+      |> assign(:contact_search, "")
+      |> assign(:form, to_form(Scheduling.change_event(%Scheduling.Event{})))
       |> load_events()
 
     {:ok, socket}
@@ -91,6 +96,142 @@ defmodule ReceptionistWeb.CalendarLive do
   @impl true
   def handle_event("close_modal", _params, socket) do
     {:noreply, push_patch(socket, to: ~p"/")}
+  end
+
+  @impl true
+  def handle_event("open_create_modal", _params, socket) do
+    changeset = Scheduling.change_event(%Scheduling.Event{})
+
+    {:noreply,
+     socket
+     |> assign(:show_create_modal, true)
+     |> assign(:selected_contact_ids, [])
+     |> assign(:contact_search, "")
+     |> assign(:form, to_form(changeset))}
+  end
+
+  @impl true
+  def handle_event("close_create_modal", _params, socket) do
+    {:noreply, assign(socket, :show_create_modal, false)}
+  end
+
+  @impl true
+  def handle_event("add_contact", %{"contact_id" => contact_id}, socket) do
+    contact_id = String.to_integer(contact_id)
+    selected_ids = Enum.uniq([contact_id | socket.assigns.selected_contact_ids])
+
+    {:noreply,
+     socket
+     |> assign(:selected_contact_ids, selected_ids)
+     |> assign(:contact_search, "")}
+  end
+
+  @impl true
+  def handle_event("remove_contact", %{"contact_id" => contact_id}, socket) do
+    contact_id = String.to_integer(contact_id)
+    selected_ids = List.delete(socket.assigns.selected_contact_ids, contact_id)
+
+    {:noreply, assign(socket, :selected_contact_ids, selected_ids)}
+  end
+
+  @impl true
+  def handle_event("search_contacts", %{"value" => search}, socket) do
+    {:noreply, assign(socket, :contact_search, search)}
+  end
+
+  @impl true
+  def handle_event("search_contacts", %{"search" => search}, socket) do
+    {:noreply, assign(socket, :contact_search, search)}
+  end
+
+  @impl true
+  def handle_event("validate_event", %{"event" => event_params}, socket) do
+    # Only validate the actual Event fields (name and description)
+    # Keep the date/time fields as they are in the form
+    event_fields = Map.take(event_params, ["name", "description"])
+
+    changeset =
+      %Scheduling.Event{}
+      |> Scheduling.change_event(event_fields)
+      |> Map.put(:action, :validate)
+
+    # Preserve the date and time input values
+    form = to_form(changeset, as: :event)
+
+    {:noreply, assign(socket, form: form)}
+  end
+
+  @impl true
+  def handle_event("save_event", %{"event" => event_params}, socket) do
+    # Convert date and time inputs to UTC datetime
+    with {:ok, start_datetime} <-
+           parse_datetime(
+             event_params["start_date"],
+             event_params["start_time"],
+             socket.assigns.timezone
+           ),
+         {:ok, end_datetime} <-
+           parse_datetime(
+             event_params["end_date"],
+             event_params["end_time"],
+             socket.assigns.timezone
+           ) do
+      # Build params with atom keys for the changeset
+      event_params = %{
+        name: event_params["name"],
+        description: event_params["description"],
+        start_time: start_datetime,
+        end_time: end_datetime
+      }
+
+      case Scheduling.create_event(event_params) do
+        {:ok, event} ->
+          # Associate contacts with the event
+          if length(socket.assigns.selected_contact_ids) > 0 do
+            contacts = Enum.map(socket.assigns.selected_contact_ids, &Scheduling.get_contact!/1)
+
+            event
+            |> Receptionist.Repo.preload(:contacts)
+            |> Ecto.Changeset.change()
+            |> Ecto.Changeset.put_assoc(:contacts, contacts)
+            |> Receptionist.Repo.update!()
+          end
+
+          {:noreply,
+           socket
+           |> assign(:show_create_modal, false)
+           |> load_events()
+           |> put_flash(:info, "Event created successfully")}
+
+        {:error, %Ecto.Changeset{} = changeset} ->
+          {:noreply,
+           socket
+           |> assign(form: to_form(changeset))
+           |> put_flash(:error, "Failed to create event. Please check the form.")}
+      end
+    else
+      _error -> {:noreply, put_flash(socket, :error, "Invalid date or time format")}
+    end
+  end
+
+  defp parse_datetime(date_string, time_string, timezone) do
+    # Add seconds if not present
+    time_string =
+      if String.contains?(time_string, ":") and String.length(time_string) == 5 do
+        time_string <> ":00"
+      else
+        time_string
+      end
+
+    with {:ok, date} <- Date.from_iso8601(date_string),
+         {:ok, time} <- Time.from_iso8601(time_string),
+         {:ok, naive_datetime} <- NaiveDateTime.new(date, time),
+         {:ok, datetime} <- DateTime.from_naive(naive_datetime, timezone),
+         {:ok, utc_datetime} <- DateTime.shift_zone(datetime, "Etc/UTC") do
+      {:ok, utc_datetime}
+    else
+      _error -> :error
+    end
   end
 
   defp load_events(socket) do
@@ -205,6 +346,25 @@ defmodule ReceptionistWeb.CalendarLive do
     Date.compare(date, Date.utc_today()) == :eq
   end
 
+  defp filter_contacts(contacts, search_term, selected_ids) do
+    search_term = String.downcase(search_term)
+
+    contacts
+    |> Enum.filter(fn contact ->
+      contact.id not in selected_ids and
+        (String.contains?(String.downcase(contact.first_name), search_term) or
+           String.contains?(String.downcase(contact.last_name), search_term) or
+           String.contains?(String.downcase(contact.email), search_term))
+    end)
+    |> Enum.take(5)
+  end
+
+  defp list_all_contacts do
+    # Get all contacts for the dropdown - use a high limit
+    result = Scheduling.list_contacts(per_page: 1000)
+    result.contacts
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -222,6 +382,12 @@ defmodule ReceptionistWeb.CalendarLive do
                     class="px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600"
                   >
                     Today
+                  </button>
+                  <button
+                    phx-click="open_create_modal"
+                    class="px-3 py-1 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
+                  >
+                    Create event
                   </button>
 
                   <%!-- Mobile: Day navigation buttons --%>
@@ -454,6 +620,198 @@ defmodule ReceptionistWeb.CalendarLive do
               </div>
               <div class="p-6 overflow-y-auto max-h-[90vh]">
                 {render_event_details(assigns)}
+              </div>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Create Event Modal --%>
+      <%= if @show_create_modal do %>
+        <div
+          class="fixed inset-0 z-50 overflow-y-auto"
+          aria-labelledby="modal-title"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              class="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm"
+              phx-click="close_create_modal"
+              aria-hidden="true"
+            >
+            </div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
+              &#8203;
+            </span>
+
+            <div class="relative inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+              <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                  <div class="w-full">
+                    <h3
+                      class="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4"
+                      id="modal-title"
+                    >
+                      Create Event
+                    </h3>
+
+                    <.form
+                      for={@form}
+                      id="event-form"
+                      phx-submit="save_event"
+                    >
+                      <div class="space-y-4">
+                        <div>
+                          <.input field={@form[:name]} type="text" label="Event Name" required />
+                        </div>
+
+                        <div>
+                          <.input
+                            field={@form[:description]}
+                            type="textarea"
+                            label="Description"
+                            rows="3"
+                          />
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                          <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Start Date
+                            </label>
+                            <input
+                              type="date"
+                              name="event[start_date]"
+                              value={Date.to_iso8601(@current_date)}
+                              required
+                              class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Start Time
+                            </label>
+                            <input
+                              type="time"
+                              name="event[start_time]"
+                              required
+                              class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                          <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              End Date
+                            </label>
+                            <input
+                              type="date"
+                              name="event[end_date]"
+                              value={Date.to_iso8601(@current_date)}
+                              required
+                              class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              End Time
+                            </label>
+                            <input
+                              type="time"
+                              name="event[end_time]"
+                              required
+                              class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Add Contacts
+                          </label>
+                          <div class="relative">
+                            <input
+                              type="text"
+                              value={@contact_search}
+                              phx-keyup="search_contacts"
+                              phx-debounce="300"
+                              placeholder="Search contacts..."
+                              class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                            />
+                            <%= if @contact_search != "" do %>
+                              <div class="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+                                <%= for contact <- filter_contacts(@all_contacts, @contact_search, @selected_contact_ids) do %>
+                                  <button
+                                    type="button"
+                                    phx-click="add_contact"
+                                    phx-value-contact_id={contact.id}
+                                    class="w-full text-left cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100 dark:hover:bg-gray-600"
+                                  >
+                                    <span class="block truncate text-gray-900 dark:text-white">
+                                      {contact.first_name} {contact.last_name} - {contact.email}
+                                    </span>
+                                  </button>
+                                <% end %>
+                              </div>
+                            <% end %>
+                          </div>
+
+                          <%= if length(@selected_contact_ids) > 0 do %>
+                            <div class="mt-2 space-y-2">
+                              <%= for contact_id <- @selected_contact_ids do %>
+                                <% contact = Enum.find(@all_contacts, &(&1.id == contact_id)) %>
+                                <div class="flex items-center justify-between bg-gray-100 dark:bg-gray-700 rounded-md px-3 py-2">
+                                  <span class="text-sm text-gray-900 dark:text-white">
+                                    {contact.first_name} {contact.last_name}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    phx-click="remove_contact"
+                                    phx-value-contact_id={contact_id}
+                                    class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                                  >
+                                    <svg
+                                      class="h-4 w-4"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12"
+                                      />
+                                    </svg>
+                                  </button>
+                                </div>
+                              <% end %>
+                            </div>
+                          <% end %>
+                        </div>
+                      </div>
+
+                      <div class="mt-5 sm:mt-6 sm:flex sm:flex-row-reverse">
+                        <button
+                          type="submit"
+                          class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                        >
+                          Create
+                        </button>
+                        <button
+                          type="button"
+                          phx-click="close_create_modal"
+                          class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </.form>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
