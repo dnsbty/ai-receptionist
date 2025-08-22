@@ -21,6 +21,7 @@ defmodule ReceptionistWeb.Router do
     live "/events/:id", CalendarLive, :show
 
     live "/contacts", ContactsLive, :index
+    live "/contacts/new", ContactsLive, :new
     live "/contacts/:id", ContactsLive, :show
     live "/contacts/:id/edit", ContactsLive, :edit
   end

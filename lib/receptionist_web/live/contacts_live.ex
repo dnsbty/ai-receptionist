@@ -2,6 +2,7 @@ defmodule ReceptionistWeb.ContactsLive do
   use ReceptionistWeb, :live_view
 
   alias Receptionist.Scheduling
+  alias Receptionist.Scheduling.Contact
 
   @impl true
   def mount(_params, _session, socket) do
@@ -25,6 +26,14 @@ defmodule ReceptionistWeb.ContactsLive do
          |> assign(:page, result.page)
          |> assign(:total_pages, result.total_pages)
          |> assign(:total_count, result.total_count)}
+
+      :new ->
+        changeset = Scheduling.change_contact(%Contact{})
+
+        {:noreply,
+         socket
+         |> assign(:page_title, "New Contact")
+         |> assign(:form, to_form(changeset))}
 
       :show ->
         contact = Scheduling.get_contact_with_events!(params["id"])
@@ -53,11 +62,28 @@ defmodule ReceptionistWeb.ContactsLive do
 
   @impl true
   def handle_event("save", %{"contact" => contact_params}, socket) do
+    save_contact(socket, socket.assigns.live_action, contact_params)
+  end
+
+  defp save_contact(socket, :edit, contact_params) do
     case Scheduling.update_contact(socket.assigns.contact, contact_params) do
       {:ok, contact} ->
         {:noreply,
          socket
          |> put_flash(:info, "Contact updated successfully")
+         |> push_navigate(to: ~p"/contacts/#{contact}")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign(socket, form: to_form(changeset))}
+    end
+  end
+
+  defp save_contact(socket, :new, contact_params) do
+    case Scheduling.create_contact(contact_params) do
+      {:ok, contact} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Contact created successfully")
          |> push_navigate(to: ~p"/contacts/#{contact}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -71,8 +97,14 @@ defmodule ReceptionistWeb.ContactsLive do
     <Layouts.app flash={@flash}>
       <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div class="mb-8">
+          <div class="mb-8 flex items-center justify-between">
             <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Contacts</h1>
+            <.link
+              navigate={~p"/contacts/new"}
+              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 font-medium"
+            >
+              Create contact
+            </.link>
           </div>
 
           <div class="mb-6">
@@ -236,6 +268,66 @@ defmodule ReceptionistWeb.ContactsLive do
               <p class="text-gray-500 dark:text-gray-400">No events scheduled with this contact.</p>
             </div>
           <% end %>
+        </div>
+      </div>
+    </Layouts.app>
+    """
+  end
+
+  @impl true
+  def render(%{live_action: :new} = assigns) do
+    ~H"""
+    <Layouts.app flash={@flash}>
+      <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div class="mb-6">
+            <.link
+              navigate={~p"/contacts"}
+              class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-2"
+            >
+              <.icon name="hero-arrow-left" class="h-5 w-5" /> Back to Contacts
+            </.link>
+          </div>
+
+          <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+              <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
+                New Contact
+              </h3>
+
+              <.form for={@form} id="contact-form" phx-submit="save">
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div>
+                    <.input field={@form[:first_name]} type="text" label="First Name" />
+                  </div>
+                  <div>
+                    <.input field={@form[:last_name]} type="text" label="Last Name" />
+                  </div>
+                  <div class="sm:col-span-2">
+                    <.input field={@form[:email]} type="email" label="Email" />
+                  </div>
+                  <div class="sm:col-span-2">
+                    <.input field={@form[:phone_number]} type="text" label="Phone Number" />
+                  </div>
+                </div>
+
+                <div class="mt-6 flex gap-3">
+                  <button
+                    type="submit"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-sm font-medium"
+                  >
+                    Create Contact
+                  </button>
+                  <.link
+                    navigate={~p"/contacts"}
+                    class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </.link>
+                </div>
+              </.form>
+            </div>
+          </div>
         </div>
       </div>
     </Layouts.app>
