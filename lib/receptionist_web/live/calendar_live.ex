@@ -591,11 +591,11 @@ defmodule ReceptionistWeb.CalendarLive do
                   </div>
 
                   <%!-- Time grid and events --%>
-                  <div class="relative">
+                  <div class="relative" id="calendar-grid" phx-hook="CurrentTimeIndicator" data-timezone={@timezone}>
                     <%!-- Hour lines --%>
                     <%= for hour <- 0..23 do %>
                       <div class="relative border-b border-gray-100 dark:border-gray-700 h-12">
-                        <span class="absolute left-2 -top-2 text-xs text-gray-400 dark:text-gray-500 w-12">
+                        <span class="absolute left-2 -top-2 text-xs text-gray-400 dark:text-gray-500 w-12" data-hour={hour}>
                           {format_hour(hour)}
                         </span>
                         <div class="grid grid-cols-7 ml-16 h-full">
@@ -639,6 +639,18 @@ defmodule ReceptionistWeb.CalendarLive do
                           <% end %>
                         </div>
                       <% end %>
+                    </div>
+
+                    <%!-- Current time indicator (controlled by JavaScript) --%>
+                    <div 
+                      id="current-time-indicator"
+                      class="absolute left-16 right-0 h-0.5 bg-red-600 pointer-events-none z-10 hidden"
+                      data-today-index={Enum.find_index(get_week_dates(@current_date), &is_today?(&1, @timezone))}
+                    >
+                      <%!-- Red dot at the left edge --%>
+                      <div class="absolute -left-1 -top-1 w-2 h-2 bg-red-600 rounded-full"></div>
+                      <%!-- Time line across today's column only --%>
+                      <div id="time-line-column" class="absolute top-0 h-full bg-red-600"></div>
                     </div>
                   </div>
                 </div>

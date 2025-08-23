@@ -42,6 +42,83 @@ Hooks.PhoneInput = {
   },
 };
 
+Hooks.CurrentTimeIndicator = {
+  mounted() {
+    this.timezone = this.el.dataset.timezone || "America/Denver";
+    this.updateTimeIndicator();
+    // Update every minute
+    this.timer = setInterval(() => this.updateTimeIndicator(), 60000);
+  },
+
+  destroyed() {
+    if (this.timer) {
+      clearInterval(this.timer);
+    }
+  },
+
+  updateTimeIndicator() {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    
+    // Calculate position as percentage of the day
+    const totalMinutes = hours * 60 + minutes;
+    const dayMinutes = 24 * 60;
+    const position = (totalMinutes / dayMinutes) * 100;
+    
+    // Find the current time indicator element
+    const indicator = document.getElementById("current-time-indicator");
+    if (!indicator) return;
+    
+    // Get today's index from the data attribute
+    const todayIndex = indicator.dataset.todayIndex;
+    
+    // Only show if today is in the current week view
+    if (todayIndex !== null && todayIndex !== undefined && todayIndex !== "") {
+      indicator.classList.remove("hidden");
+      indicator.style.top = `${position}%`;
+      
+      // Update the column line position
+      const columnLine = document.getElementById("time-line-column");
+      if (columnLine) {
+        const columnWidth = 100 / 7; // 7 days in week
+        columnLine.style.left = `calc(${todayIndex} * ${columnWidth}%)`;
+        columnLine.style.width = `${columnWidth}%`;
+      }
+    } else {
+      indicator.classList.add("hidden");
+    }
+    
+    // Update the hour labels to show current time
+    const hourSpans = this.el.querySelectorAll("span[data-hour]");
+    hourSpans.forEach(span => {
+      const hour = parseInt(span.dataset.hour);
+      if (hour === hours) {
+        // Format current time
+        const timeStr = this.formatTime(hours, minutes);
+        span.innerHTML = `<span class="text-red-600 font-bold">${timeStr}</span>`;
+      } else {
+        // Reset to normal hour display
+        span.innerHTML = this.formatHour(hour);
+      }
+    });
+  },
+
+  formatTime(hour, minute) {
+    const minuteStr = minute.toString().padStart(2, '0');
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    return `${hour12}:${minuteStr} ${period}`;
+  },
+
+  formatHour(hour) {
+    if (hour === 0) return "12 AM";
+    if (hour < 12) return `${hour} AM`;
+    if (hour === 12) return "12 PM";
+    return `${hour - 12} PM`;
+  }
+};
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
