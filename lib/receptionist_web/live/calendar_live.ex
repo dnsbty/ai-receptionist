@@ -238,16 +238,16 @@ defmodule ReceptionistWeb.CalendarLive do
     # Load both day and week ranges to support responsive view
     day_dates = [socket.assigns.current_date]
 
-    week_dates =
-      Enum.map(0..6, fn days ->
-        Date.add(socket.assigns.current_date, days)
-      end)
+    week_dates = get_week_dates(socket.assigns.current_date)
 
     # Get all dates we need (union of both)
     all_dates = Enum.uniq(day_dates ++ week_dates)
 
     # Get the range for all dates in one query
-    {first_date, last_date} = Enum.min_max(all_dates)
+    # Note: Don't use Enum.min_max as it fails when weeks span months (e.g., Aug 31 - Sep 6)
+    # Instead, get first and last from the already-ordered week dates
+    first_date = List.first(week_dates)
+    last_date = List.last(week_dates)
     start_of_range = date_to_datetime(first_date, socket.assigns.timezone, :start)
     end_of_range = date_to_datetime(last_date, socket.assigns.timezone, :end)
 
@@ -275,61 +275,74 @@ defmodule ReceptionistWeb.CalendarLive do
   end
 
   defp get_week_dates(current_date) do
+    # Calculate the most recent Sunday
+    day_of_week = Date.day_of_week(current_date)
+    # day_of_week: 1 = Monday, 7 = Sunday
+    # We want to go back to Sunday (day 7)
+    days_since_sunday = rem(day_of_week, 7)
+    sunday = Date.add(current_date, -days_since_sunday)
+    
+    # Generate Sunday through Saturday
     Enum.map(0..6, fn days ->
-      Date.add(current_date, days)
+      Date.add(sunday, days)
     end)
   end
 
+  defp today_in_timezone("America/Denver" = _timezone) do
+    # Get current UTC time and adjust for Mountain Time
+    utc_now = DateTime.utc_now()
+    
+    # Mountain Time is UTC-7 in standard time, UTC-6 in daylight time
+    # For simplicity, we'll use UTC-6 for summer months (Mar-Nov) and UTC-7 for winter
+    offset_hours = if utc_now.month >= 3 and utc_now.month <= 10, do: -6, else: -7
+    
+    # Adjust UTC time to Mountain Time
+    mountain_time = DateTime.add(utc_now, offset_hours * 3600, :second)
+    
+    # Return the date in Mountain Time
+    DateTime.to_date(mountain_time)
+  end
+  
   defp today_in_timezone(_timezone) do
-    # For simplicity, using UTC today
-    # In production, you'd want to use a proper timezone library
+    # Fallback for other timezones - just use UTC
     Date.utc_today()
   end
 
-  defp date_to_datetime(date, timezone, :start) do
-    # Create the start of day in the user's timezone, then convert to UTC
-    {:ok, naive} = NaiveDateTime.new(date, ~T[00:00:00])
-
-    case DateTime.from_naive(naive, timezone) do
-      {:ok, local_dt} ->
-        case DateTime.shift_zone(local_dt, "Etc/UTC") do
-          {:ok, utc_dt} ->
-            utc_dt
-
-          {:error, _} ->
-            # Fallback if timezone conversion fails
-            {:ok, dt} = DateTime.new(date, ~T[00:00:00])
-            dt
-        end
-
-      {:error, _} ->
-        # Fallback if timezone conversion fails
-        {:ok, dt} = DateTime.new(date, ~T[00:00:00])
-        dt
-    end
+  defp date_to_datetime(date, "America/Denver" = _timezone, :start) do
+    # Mountain Time is UTC-7 in standard time, UTC-6 in daylight time
+    # For simplicity, we'll use UTC-6 for summer months (Mar-Nov) and UTC-7 for winter
+    # This is a rough approximation since we don't have a full timezone database
+    
+    # Determine offset based on month
+    offset_hours = if date.month >= 3 and date.month <= 10, do: 6, else: 7
+    
+    # Create the DateTime at midnight in Mountain Time, then adjust to UTC
+    {:ok, local_midnight} = DateTime.new(date, ~T[00:00:00], "Etc/UTC")
+    DateTime.add(local_midnight, offset_hours * 3600, :second)
+  end
+  
+  defp date_to_datetime(date, "America/Denver" = _timezone, :end) do
+    # Mountain Time is UTC-7 in standard time, UTC-6 in daylight time
+    # For simplicity, we'll use UTC-6 for summer months (Mar-Nov) and UTC-7 for winter
+    
+    # Determine offset based on month
+    offset_hours = if date.month >= 3 and date.month <= 10, do: 6, else: 7
+    
+    # Create the DateTime at 23:59:59 in Mountain Time, then adjust to UTC
+    {:ok, local_end} = DateTime.new(date, ~T[23:59:59], "Etc/UTC")
+    DateTime.add(local_end, offset_hours * 3600, :second)
   end
 
-  defp date_to_datetime(date, timezone, :end) do
-    # Create the end of day in the user's timezone, then convert to UTC
-    {:ok, naive} = NaiveDateTime.new(date, ~T[23:59:59])
+  defp date_to_datetime(date, _timezone, :start) do
+    # Fallback for other timezones - just use UTC
+    {:ok, dt} = DateTime.new(date, ~T[00:00:00], "Etc/UTC")
+    dt
+  end
 
-    case DateTime.from_naive(naive, timezone) do
-      {:ok, local_dt} ->
-        case DateTime.shift_zone(local_dt, "Etc/UTC") do
-          {:ok, utc_dt} ->
-            utc_dt
-
-          {:error, _} ->
-            # Fallback if timezone conversion fails
-            {:ok, dt} = DateTime.new(date, ~T[23:59:59])
-            dt
-        end
-
-      {:error, _} ->
-        # Fallback if timezone conversion fails
-        {:ok, dt} = DateTime.new(date, ~T[23:59:59])
-        dt
-    end
+  defp date_to_datetime(date, _timezone, :end) do
+    # Fallback for other timezones - just use UTC
+    {:ok, dt} = DateTime.new(date, ~T[23:59:59], "Etc/UTC")
+    dt
   end
 
   defp format_time(datetime, timezone) do
@@ -391,8 +404,9 @@ defmodule ReceptionistWeb.CalendarLive do
     {top, height}
   end
 
-  defp is_today?(date) do
-    Date.compare(date, Date.utc_today()) == :eq
+  defp is_today?(date, timezone) do
+    today = today_in_timezone(timezone)
+    Date.compare(date, today) == :eq
   end
 
   defp is_business_hour?(date, hour) do
@@ -572,12 +586,12 @@ defmodule ReceptionistWeb.CalendarLive do
                     <%= for date <- get_week_dates(@current_date) do %>
                       <div class={[
                         "px-4 py-3 text-center border-r border-gray-200 dark:border-gray-700 last:border-r-0",
-                        is_today?(date) && "bg-blue-50 dark:bg-blue-900/20"
+                        is_today?(date, @timezone) && "bg-blue-50 dark:bg-blue-900/20"
                       ]}>
                         <div class="text-sm font-medium text-gray-900 dark:text-white">
                           {format_date_short(date)}
                         </div>
-                        <%= if is_today?(date) do %>
+                        <%= if is_today?(date, @timezone) do %>
                           <div class="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1">
                             Today
                           </div>

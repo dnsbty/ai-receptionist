@@ -17,167 +17,200 @@ alias Receptionist.Scheduling.{Event, Contact}
 Receptionist.Repo.delete_all(Event)
 Receptionist.Repo.delete_all(Contact)
 
-# Create contacts with realistic US phone numbers
-{:ok, john} =
-  Scheduling.create_contact(%{
-    first_name: "John",
-    last_name: "Doe",
-    email: "john.doe@example.com",
-    phone_number: "(415) 555-1234"
-  })
-
-{:ok, jane} =
-  Scheduling.create_contact(%{
-    first_name: "Jane",
-    last_name: "Smith",
-    email: "jane.smith@example.com",
-    phone_number: "415-555-5678"
-  })
-
-{:ok, bob} =
-  Scheduling.create_contact(%{
-    first_name: "Bob",
-    last_name: "Johnson",
-    email: "bob.johnson@example.com",
-    phone_number: "4155559012"
-  })
-
-{:ok, alice} =
-  Scheduling.create_contact(%{
-    first_name: "Alice",
-    last_name: "Williams",
-    email: "alice.williams@example.com",
-    phone_number: "+14155553456"
-  })
-
-{:ok, charlie} =
-  Scheduling.create_contact(%{
-    first_name: "Charlie",
-    last_name: "Brown",
-    email: "charlie.brown@example.com",
-    phone_number: "415.555.7890"
-  })
-
-# Get today's date in UTC
-today = Date.utc_today()
-{:ok, base_datetime} = DateTime.new(today, ~T[00:00:00], "Etc/UTC")
-
-# Create events for today and the next few days
-events_data = [
-  # Today's events
-  %{
-    name: "Morning Standup",
-    description: "Daily team sync meeting",
-    # 9 AM UTC
-    start_time: DateTime.add(base_datetime, 9 * 3600, :second),
-    # 9:30 AM UTC
-    end_time: DateTime.add(base_datetime, 9 * 3600 + 30 * 60, :second),
-    contact_ids: [john.id, jane.id]
-  },
-  %{
-    name: "Client Meeting",
-    description: "Quarterly review with ABC Corp",
-    # 2 PM UTC
-    start_time: DateTime.add(base_datetime, 14 * 3600, :second),
-    # 3 PM UTC
-    end_time: DateTime.add(base_datetime, 15 * 3600, :second),
-    contact_ids: [alice.id]
-  },
-  %{
-    name: "Product Demo",
-    description: "New feature demonstration",
-    # 4 PM UTC
-    start_time: DateTime.add(base_datetime, 16 * 3600, :second),
-    # 5 PM UTC
-    end_time: DateTime.add(base_datetime, 17 * 3600, :second),
-    contact_ids: [bob.id, charlie.id]
-  },
-
-  # Tomorrow's events
-  %{
-    name: "Team Lunch",
-    description: "Monthly team building",
-    # Tomorrow 12 PM UTC
-    start_time: DateTime.add(base_datetime, 24 * 3600 + 12 * 3600, :second),
-    # Tomorrow 1:30 PM UTC
-    end_time: DateTime.add(base_datetime, 24 * 3600 + 13 * 3600 + 30 * 60, :second),
-    contact_ids: [john.id, jane.id, bob.id, alice.id]
-  },
-  %{
-    name: "Design Review",
-    description: "Review new UI mockups",
-    # Tomorrow 3 PM UTC
-    start_time: DateTime.add(base_datetime, 24 * 3600 + 15 * 3600, :second),
-    # Tomorrow 4 PM UTC
-    end_time: DateTime.add(base_datetime, 24 * 3600 + 16 * 3600, :second),
-    contact_ids: [jane.id]
-  },
-
-  # Day after tomorrow's events
-  %{
-    name: "Sprint Planning",
-    description: "Plan next sprint tasks",
-    # Day after tomorrow 10 AM UTC
-    start_time: DateTime.add(base_datetime, 48 * 3600 + 10 * 3600, :second),
-    # Day after tomorrow 12 PM UTC
-    end_time: DateTime.add(base_datetime, 48 * 3600 + 12 * 3600, :second),
-    contact_ids: [john.id, jane.id, bob.id]
-  },
-  %{
-    name: "One-on-One",
-    description: "Manager check-in",
-    # Day after tomorrow 2 PM UTC
-    start_time: DateTime.add(base_datetime, 48 * 3600 + 14 * 3600, :second),
-    # Day after tomorrow 2:45 PM UTC
-    end_time: DateTime.add(base_datetime, 48 * 3600 + 14 * 3600 + 45 * 60, :second),
-    contact_ids: [alice.id]
-  },
-
-  # More events throughout the week
-  %{
-    name: "Workshop",
-    description: "Elixir best practices",
-    # 3 days from now 1 PM UTC
-    start_time: DateTime.add(base_datetime, 72 * 3600 + 13 * 3600, :second),
-    # 3 days from now 4 PM UTC
-    end_time: DateTime.add(base_datetime, 72 * 3600 + 16 * 3600, :second),
-    contact_ids: [charlie.id, john.id]
-  },
-  %{
-    name: "Board Meeting",
-    description: "Quarterly board review",
-    # 4 days from now 3 PM UTC
-    start_time: DateTime.add(base_datetime, 96 * 3600 + 15 * 3600, :second),
-    # 4 days from now 5 PM UTC
-    end_time: DateTime.add(base_datetime, 96 * 3600 + 17 * 3600, :second),
-    contact_ids: [alice.id, bob.id]
-  },
-  %{
-    name: "Training Session",
-    description: "New employee onboarding",
-    # 5 days from now 10 AM UTC
-    start_time: DateTime.add(base_datetime, 120 * 3600 + 10 * 3600, :second),
-    # 5 days from now 12 PM UTC
-    end_time: DateTime.add(base_datetime, 120 * 3600 + 12 * 3600, :second),
-    contact_ids: [jane.id, charlie.id]
-  }
+# Lists of realistic first and last names for random generation
+first_names = [
+  "James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda",
+  "William", "Elizabeth", "David", "Barbara", "Richard", "Susan", "Joseph", "Jessica",
+  "Thomas", "Sarah", "Charles", "Karen", "Christopher", "Nancy", "Daniel", "Lisa",
+  "Matthew", "Betty", "Anthony", "Helen", "Donald", "Sandra", "Mark", "Donna",
+  "Paul", "Carol", "Steven", "Ruth", "Andrew", "Sharon", "Kenneth", "Michelle",
+  "Joshua", "Laura", "Kevin", "Emily", "Brian", "Kimberly", "George", "Deborah",
+  "Edward", "Dorothy", "Ronald", "Amy", "Timothy", "Angela", "Jason", "Ashley",
+  "Jeffrey", "Brenda", "Ryan", "Emma", "Jacob", "Virginia", "Gary", "Kathleen",
+  "Nicholas", "Pamela", "Eric", "Martha", "Jonathan", "Debra", "Stephen", "Amanda",
+  "Larry", "Stephanie", "Justin", "Janet", "Scott", "Carolyn", "Brandon", "Christine",
+  "Benjamin", "Marie", "Samuel", "Catherine", "Frank", "Frances", "Gregory", "Christina",
+  "Raymond", "Samantha", "Alexander", "Nicole", "Patrick", "Judith", "Jack", "Andrea",
+  "Dennis", "Olivia", "Jerry", "Ann", "Tyler", "Jean", "Aaron", "Alice"
 ]
 
-# Create events and associate contacts
-for event_data <- events_data do
-  contact_ids = Map.get(event_data, :contact_ids, [])
-  event_attrs = Map.drop(event_data, [:contact_ids])
+last_names = [
+  "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+  "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas",
+  "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White",
+  "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker", "Young",
+  "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores",
+  "Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell", "Mitchell",
+  "Carter", "Roberts", "Gomez", "Phillips", "Evans", "Turner", "Diaz", "Parker",
+  "Cruz", "Edwards", "Collins", "Reyes", "Stewart", "Morris", "Morales", "Murphy",
+  "Cook", "Rogers", "Gutierrez", "Ortiz", "Morgan", "Cooper", "Peterson", "Bailey",
+  "Reed", "Kelly", "Howard", "Ramos", "Kim", "Cox", "Ward", "Richardson",
+  "Watson", "Brooks", "Chavez", "Wood", "James", "Bennett", "Gray", "Mendoza",
+  "Ruiz", "Hughes", "Price", "Alvarez", "Castillo", "Sanders", "Patel", "Myers",
+  "Long", "Ross", "Foster", "Jimenez", "Powell", "Jenkins", "Perry", "Russell"
+]
 
-  {:ok, event} = Scheduling.create_event(event_attrs)
+# Area codes for various US regions (using 555 prefix for all numbers)
+area_codes = ["212", "415", "310", "713", "305", "312", "617", "404", "206", "801", 
+              "503", "602", "619", "720", "813", "702", "916", "480", "407", "214"]
 
-  # Associate contacts with the event using the join table
-  contacts = Enum.map(contact_ids, &Receptionist.Repo.get!(Contact, &1))
-
-  event
-  |> Receptionist.Repo.preload(:contacts)
-  |> Ecto.Changeset.change()
-  |> Ecto.Changeset.put_assoc(:contacts, contacts)
-  |> Receptionist.Repo.update!()
+# Create 100 contacts with random names and phone numbers
+contacts = for i <- 1..100 do
+  first_name = Enum.random(first_names)
+  last_name = Enum.random(last_names)
+  area_code = Enum.random(area_codes)
+  # Generate random last 4 digits (0000-9999)
+  last_four = :rand.uniform(10000) - 1 |> Integer.to_string() |> String.pad_leading(4, "0")
+  
+  {:ok, contact} = 
+    Scheduling.create_contact(%{
+      first_name: first_name,
+      last_name: last_name,
+      email: "#{String.downcase(first_name)}.#{String.downcase(last_name)}#{i}@example.com",
+      phone_number: "+1#{area_code}555#{last_four}"
+    })
+  
+  contact
 end
 
-IO.puts("Seeded #{length(events_data)} events with contacts!")
+IO.puts("Created #{length(contacts)} contacts!")
+
+# Helper function to create datetime in Mountain Time and convert to UTC
+create_event_time = fn date, hour, minute ->
+  {:ok, mt_time} = DateTime.new(date, Time.new!(hour, minute, 0), "America/Denver")
+  {:ok, utc_time} = DateTime.shift_zone(mt_time, "Etc/UTC")
+  utc_time
+end
+
+# Generate random appointments for the next 4 weeks
+# 25 appointments per week = 100 total appointments
+
+# Start from the previous Sunday
+today = Date.utc_today()
+day_of_week = Date.day_of_week(today)
+# day_of_week: 1 = Monday, 7 = Sunday
+# Calculate days to go back to get to Sunday
+days_since_sunday = rem(day_of_week, 7)
+start_date = Date.add(today, -days_since_sunday)
+
+IO.puts("Today's date: #{today}")
+IO.puts("Starting from Sunday: #{start_date}")
+
+# Business hours configuration
+# M-F: 8am-6pm (8:00-18:00)
+# Sat: 10am-4pm (10:00-16:00)
+# Sun: Closed
+
+# Helper function to check if two time ranges overlap
+check_overlap = fn existing_start, existing_end, new_start, new_end ->
+  # Two ranges overlap if one starts before the other ends
+  not (DateTime.compare(new_end, existing_start) == :lt or 
+       DateTime.compare(new_start, existing_end) == :gt)
+end
+
+# Track all scheduled appointments to avoid overlaps
+# Map of date -> list of {start_time, end_time} tuples
+all_scheduled_slots = %{}
+
+# Recursive function to create appointments without overlaps
+create_week_appointments = fn week_start, target_count, scheduled_slots, contacts, create_event_time, check_overlap ->
+  create_appointments_recursive = fn create_appointments_recursive, current_count, current_slots, attempts ->
+    if current_count >= target_count or attempts >= 500 do
+      {current_count, current_slots, attempts}
+    else
+      # Pick a random contact
+      contact = Enum.random(contacts)
+      
+      # Pick a random day within this week (Mon-Sat only)
+      day_offset = :rand.uniform(6) - 1  # 0-5 for Mon-Sat
+      appointment_date = Date.add(week_start, day_offset)
+      day_of_week = Date.day_of_week(appointment_date)
+      
+      # Skip Sunday (should not happen with 0-5 range, but double-check)
+      if day_of_week != 7 do
+        # Determine business hours based on day
+        {start_hour, end_hour} = case day_of_week do
+          6 -> {10, 16}  # Saturday
+          _ -> {8, 18}    # Monday-Friday
+        end
+        
+        # Generate random start time within business hours
+        # Leave at least 30 minutes before closing
+        latest_start = end_hour - 1
+        hour = start_hour + :rand.uniform(latest_start - start_hour + 1) - 1
+        # Start times at 00 or 30 minutes
+        minute = Enum.random([0, 30])
+        
+        # Randomly choose 30 minutes or 1 hour duration
+        duration_minutes = Enum.random([30, 60])
+        
+        # Create the appointment times
+        start_time = create_event_time.(appointment_date, hour, minute)
+        end_time = DateTime.add(start_time, duration_minutes * 60, :second)
+        
+        # Check if this time slot conflicts with existing appointments
+        existing_slots = Map.get(current_slots, appointment_date, [])
+        
+        has_conflict = Enum.any?(existing_slots, fn {existing_start, existing_end} ->
+          check_overlap.(existing_start, existing_end, start_time, end_time)
+        end)
+        
+        # Only create the appointment if there's no conflict
+        if not has_conflict do
+          # Create full name for the contact
+          full_name = "#{contact.first_name} #{contact.last_name}"
+          
+          {:ok, event} = Scheduling.create_event(%{
+            name: full_name,
+            description: "Appointment with #{full_name}",
+            start_time: start_time,
+            end_time: end_time
+          })
+          
+          # Associate the contact with the event
+          event
+          |> Receptionist.Repo.preload(:contacts)
+          |> Ecto.Changeset.change()
+          |> Ecto.Changeset.put_assoc(:contacts, [contact])
+          |> Receptionist.Repo.update!()
+          
+          # Track this slot to prevent future overlaps
+          updated_slots = Map.update(
+            current_slots, 
+            appointment_date, 
+            [{start_time, end_time}], 
+            fn slots -> [{start_time, end_time} | slots] end
+          )
+          
+          create_appointments_recursive.(create_appointments_recursive, current_count + 1, updated_slots, attempts + 1)
+        else
+          create_appointments_recursive.(create_appointments_recursive, current_count, current_slots, attempts + 1)
+        end
+      else
+        create_appointments_recursive.(create_appointments_recursive, current_count, current_slots, attempts + 1)
+      end
+    end
+  end
+  
+  create_appointments_recursive.(create_appointments_recursive, 0, scheduled_slots, 0)
+end
+
+# Create appointments for each week
+all_scheduled_slots = Enum.reduce(0..3, %{}, fn week, scheduled_slots ->
+  week_start = Date.add(start_date, week * 7)
+  week_end = Date.add(start_date, week * 7 + 6)
+  IO.puts("Week #{week}: #{week_start} to #{week_end}")
+  
+  {appointments_created, updated_slots, attempts} = 
+    create_week_appointments.(week_start, 25, scheduled_slots, contacts, create_event_time, check_overlap)
+  
+  if appointments_created < 25 do
+    IO.puts("  Warning: Only created #{appointments_created} appointments for week #{week} (attempted #{attempts} times)")
+  else
+    IO.puts("  Successfully created #{appointments_created} appointments for week #{week}")
+  end
+  
+  updated_slots
+end)
+
+IO.puts("Created 100 appointments over 4 weeks!")
