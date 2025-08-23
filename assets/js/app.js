@@ -45,6 +45,11 @@ Hooks.PhoneInput = {
 Hooks.CurrentTimeIndicator = {
   mounted() {
     this.timezone = this.el.dataset.timezone || "America/Denver";
+    this.scrollContainer = document.getElementById("calendar-scroll-container");
+
+    // Scroll to 7am on mount
+    this.scrollToHour(7);
+
     this.updateTimeIndicator();
     // Update every minute
     this.timer = setInterval(() => this.updateTimeIndicator(), 60000);
@@ -56,28 +61,60 @@ Hooks.CurrentTimeIndicator = {
     }
   },
 
+  scrollToHour(hour) {
+    if (!this.scrollContainer) return;
+
+    // Each hour is 48px (h-12 in Tailwind)
+    const hourHeight = 48;
+    const scrollPosition = hour * hourHeight;
+
+    // Scroll to the position
+    this.scrollContainer.scrollTop = scrollPosition;
+  },
+
+  scrollToCurrentTime() {
+    if (!this.scrollContainer) return;
+
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+
+    // Calculate scroll position
+    const hourHeight = 48;
+    const scrollPosition = (hours + minutes / 60) * hourHeight;
+
+    // Only scroll if current time is outside visible area
+    const containerHeight = this.scrollContainer.clientHeight;
+    const currentScroll = this.scrollContainer.scrollTop;
+
+    if (scrollPosition < currentScroll || scrollPosition > currentScroll + containerHeight - hourHeight) {
+      // Scroll to center the current time
+      this.scrollContainer.scrollTop = scrollPosition - containerHeight / 2;
+    }
+  },
+
   updateTimeIndicator() {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
-    
+
     // Calculate position as percentage of the day
     const totalMinutes = hours * 60 + minutes;
     const dayMinutes = 24 * 60;
     const position = (totalMinutes / dayMinutes) * 100;
-    
+
     // Find the current time indicator element
     const indicator = document.getElementById("current-time-indicator");
     if (!indicator) return;
-    
+
     // Get today's index from the data attribute
     const todayIndex = indicator.dataset.todayIndex;
-    
+
     // Only show if today is in the current week view
     if (todayIndex !== null && todayIndex !== undefined && todayIndex !== "") {
       indicator.classList.remove("hidden");
       indicator.style.top = `${position}%`;
-      
+
       // Update the column line position
       const columnLine = document.getElementById("time-line-column");
       if (columnLine) {
@@ -85,10 +122,22 @@ Hooks.CurrentTimeIndicator = {
         columnLine.style.left = `calc(${todayIndex} * ${columnWidth}%)`;
         columnLine.style.width = `${columnWidth}%`;
       }
+
+      // Optionally scroll to current time if it's today
+      // Only do this on initial mount, not every minute
+      if (!this.hasScrolledToCurrentTime) {
+        const currentHour = now.getHours();
+        // If current time is between 5am and 9pm, scroll to current time
+        // Otherwise stick with 5am default
+        if (currentHour >= 5 && currentHour <= 21) {
+          this.scrollToCurrentTime();
+        }
+        this.hasScrolledToCurrentTime = true;
+      }
     } else {
       indicator.classList.add("hidden");
     }
-    
+
     // Update the hour labels to show current time
     const hourSpans = this.el.querySelectorAll("span[data-hour]");
     hourSpans.forEach(span => {

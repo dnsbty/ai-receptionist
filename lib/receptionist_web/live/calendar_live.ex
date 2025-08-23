@@ -271,7 +271,7 @@ defmodule ReceptionistWeb.CalendarLive do
     # We want to go back to Sunday (day 7)
     days_since_sunday = rem(day_of_week, 7)
     sunday = Date.add(current_date, -days_since_sunday)
-    
+
     # Generate Sunday through Saturday
     Enum.map(0..6, fn days ->
       Date.add(sunday, days)
@@ -281,18 +281,18 @@ defmodule ReceptionistWeb.CalendarLive do
   defp today_in_timezone("America/Denver" = _timezone) do
     # Get current UTC time and adjust for Mountain Time
     utc_now = DateTime.utc_now()
-    
+
     # Mountain Time is UTC-7 in standard time, UTC-6 in daylight time
     # For simplicity, we'll use UTC-6 for summer months (Mar-Nov) and UTC-7 for winter
     offset_hours = if utc_now.month >= 3 and utc_now.month <= 10, do: -6, else: -7
-    
+
     # Adjust UTC time to Mountain Time
     mountain_time = DateTime.add(utc_now, offset_hours * 3600, :second)
-    
+
     # Return the date in Mountain Time
     DateTime.to_date(mountain_time)
   end
-  
+
   defp today_in_timezone(_timezone) do
     # Fallback for other timezones - just use UTC
     Date.utc_today()
@@ -302,22 +302,22 @@ defmodule ReceptionistWeb.CalendarLive do
     # Mountain Time is UTC-7 in standard time, UTC-6 in daylight time
     # For simplicity, we'll use UTC-6 for summer months (Mar-Nov) and UTC-7 for winter
     # This is a rough approximation since we don't have a full timezone database
-    
+
     # Determine offset based on month
     offset_hours = if date.month >= 3 and date.month <= 10, do: 6, else: 7
-    
+
     # Create the DateTime at midnight in Mountain Time, then adjust to UTC
     {:ok, local_midnight} = DateTime.new(date, ~T[00:00:00], "Etc/UTC")
     DateTime.add(local_midnight, offset_hours * 3600, :second)
   end
-  
+
   defp date_to_datetime(date, "America/Denver" = _timezone, :end) do
     # Mountain Time is UTC-7 in standard time, UTC-6 in daylight time
     # For simplicity, we'll use UTC-6 for summer months (Mar-Nov) and UTC-7 for winter
-    
+
     # Determine offset based on month
     offset_hours = if date.month >= 3 and date.month <= 10, do: 6, else: 7
-    
+
     # Create the DateTime at 23:59:59 in Mountain Time, then adjust to UTC
     {:ok, local_end} = DateTime.new(date, ~T[23:59:59], "Etc/UTC")
     DateTime.add(local_end, offset_hours * 3600, :second)
@@ -590,67 +590,80 @@ defmodule ReceptionistWeb.CalendarLive do
                     <% end %>
                   </div>
 
-                  <%!-- Time grid and events --%>
-                  <div class="relative" id="calendar-grid" phx-hook="CurrentTimeIndicator" data-timezone={@timezone}>
-                    <%!-- Hour lines --%>
-                    <%= for hour <- 0..23 do %>
-                      <div class="relative border-b border-gray-100 dark:border-gray-700 h-12">
-                        <span class="absolute left-2 -top-2 text-xs text-gray-400 dark:text-gray-500 w-12" data-hour={hour}>
-                          {format_hour(hour)}
-                        </span>
-                        <div class="grid grid-cols-7 ml-16 h-full">
-                          <%= for {date, day_index} <- Enum.with_index(get_week_dates(@current_date)) do %>
-                            <% is_business_hour = is_business_hour?(date, hour) %>
-                            <div class={[
-                              "border-r border-gray-100 dark:border-gray-700 last:border-r-0 relative",
-                              !is_business_hour && "bg-gray-50 dark:bg-gray-800"
-                            ]}>
-                              <%= if !is_business_hour do %>
-                                <div
-                                  class="absolute inset-0 opacity-70 dark:opacity-50"
-                                  style="background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(156, 163, 175, 0.35) 2px, rgba(156, 163, 175, 0.5) 4px);"
-                                >
-                                </div>
-                              <% end %>
-                            </div>
-                          <% end %>
-                        </div>
-                      </div>
-                    <% end %>
-
-                    <%!-- Events overlay --%>
-                    <div class="absolute inset-0 left-16 grid grid-cols-7">
-                      <%= for {date, index} <- Enum.with_index(get_week_dates(@current_date)) do %>
-                        <div class="relative border-r border-gray-200 dark:border-gray-700 last:border-r-0">
-                          <%= for event <- Map.get(@events_by_date, date, []) do %>
-                            <% {top, height} = calculate_event_position(event, @timezone) %>
-                            <.link
-                              patch={~p"/events/#{event.id}"}
-                              class="absolute left-1 right-1 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-600 rounded p-1 overflow-hidden hover:bg-blue-200 dark:hover:bg-blue-900/40 cursor-pointer transition-colors block"
-                              style={"top: #{top}%; height: #{height}%; min-height: 30px;"}
-                            >
-                              <div class="text-xs font-medium text-blue-900 dark:text-blue-100 truncate">
-                                {event.name}
+                  <%!-- Scrollable time grid container --%>
+                  <div class="relative h-[576px] overflow-y-auto" id="calendar-scroll-container">
+                    <%!-- Time grid and events --%>
+                    <div
+                      class="relative"
+                      id="calendar-grid"
+                      phx-hook="CurrentTimeIndicator"
+                      data-timezone={@timezone}
+                    >
+                      <%!-- Hour lines --%>
+                      <%= for hour <- 0..23 do %>
+                        <div class="relative border-b border-gray-100 dark:border-gray-700 h-12">
+                          <span
+                            class="absolute left-2 -top-2 text-xs text-gray-400 dark:text-gray-500 w-12"
+                            data-hour={hour}
+                          >
+                            {format_hour(hour)}
+                          </span>
+                          <div class="grid grid-cols-7 ml-16 h-full">
+                            <%= for {date, day_index} <- Enum.with_index(get_week_dates(@current_date)) do %>
+                              <% is_business_hour = is_business_hour?(date, hour) %>
+                              <div class={[
+                                "border-r border-gray-100 dark:border-gray-700 last:border-r-0 relative",
+                                !is_business_hour && "bg-gray-50 dark:bg-gray-800"
+                              ]}>
+                                <%= if !is_business_hour do %>
+                                  <div
+                                    class="absolute inset-0 opacity-70 dark:opacity-50"
+                                    style="background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(156, 163, 175, 0.35) 2px, rgba(156, 163, 175, 0.5) 4px);"
+                                  >
+                                  </div>
+                                <% end %>
                               </div>
-                              <div class="text-xs text-blue-700 dark:text-blue-300">
-                                {format_time(event.start_time, @timezone)}
-                              </div>
-                            </.link>
-                          <% end %>
+                            <% end %>
+                          </div>
                         </div>
                       <% end %>
-                    </div>
 
-                    <%!-- Current time indicator (controlled by JavaScript) --%>
-                    <div 
-                      id="current-time-indicator"
-                      class="absolute left-16 right-0 h-0.5 bg-red-600 pointer-events-none z-10 hidden"
-                      data-today-index={Enum.find_index(get_week_dates(@current_date), &is_today?(&1, @timezone))}
-                    >
-                      <%!-- Red dot at the left edge --%>
-                      <div class="absolute -left-1 -top-1 w-2 h-2 bg-red-600 rounded-full"></div>
-                      <%!-- Time line across today's column only --%>
-                      <div id="time-line-column" class="absolute top-0 h-full bg-red-600"></div>
+                      <%!-- Events overlay --%>
+                      <div class="absolute inset-0 left-16 grid grid-cols-7">
+                        <%= for {date, index} <- Enum.with_index(get_week_dates(@current_date)) do %>
+                          <div class="relative border-r border-gray-200 dark:border-gray-700 last:border-r-0">
+                            <%= for event <- Map.get(@events_by_date, date, []) do %>
+                              <% {top, height} = calculate_event_position(event, @timezone) %>
+                              <.link
+                                patch={~p"/events/#{event.id}"}
+                                class="absolute left-1 right-1 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-600 rounded p-1 overflow-hidden hover:bg-blue-200 dark:hover:bg-blue-900/40 cursor-pointer transition-colors block"
+                                style={"top: #{top}%; height: #{height}%; min-height: 30px;"}
+                              >
+                                <div class="text-xs font-medium text-blue-900 dark:text-blue-100 truncate">
+                                  {event.name}
+                                </div>
+                                <div class="text-xs text-blue-700 dark:text-blue-300">
+                                  {format_time(event.start_time, @timezone)}
+                                </div>
+                              </.link>
+                            <% end %>
+                          </div>
+                        <% end %>
+                      </div>
+
+                      <%!-- Current time indicator (controlled by JavaScript) --%>
+                      <div
+                        id="current-time-indicator"
+                        class="absolute left-16 right-0 h-0.5 bg-red-600 pointer-events-none z-10 hidden"
+                        data-today-index={
+                          Enum.find_index(get_week_dates(@current_date), &is_today?(&1, @timezone))
+                        }
+                      >
+                        <%!-- Red dot at the left edge --%>
+                        <div class="absolute -left-1 -top-1 w-2 h-2 bg-red-600 rounded-full"></div>
+                        <%!-- Time line across today's column only --%>
+                        <div id="time-line-column" class="absolute top-0 h-full bg-red-600"></div>
+                      </div>
                     </div>
                   </div>
                 </div>
