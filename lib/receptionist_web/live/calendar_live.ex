@@ -5,7 +5,8 @@ defmodule ReceptionistWeb.CalendarLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    timezone = get_connect_params(socket)["timezone"] || "UTC"
+    # Always use Mountain Time
+    timezone = "America/Denver"
     today = today_in_timezone(timezone)
 
     socket =
@@ -204,7 +205,7 @@ defmodule ReceptionistWeb.CalendarLive do
     end
   end
 
-  defp parse_datetime(date_string, time_string, timezone) do
+  defp parse_datetime(date_string, time_string, _timezone) do
     # Add seconds if not present
     time_string =
       if String.contains?(time_string, ":") and String.length(time_string) == 5 do
@@ -216,7 +217,7 @@ defmodule ReceptionistWeb.CalendarLive do
     with {:ok, date} <- Date.from_iso8601(date_string),
          {:ok, time} <- Time.from_iso8601(time_string),
          {:ok, naive_datetime} <- NaiveDateTime.new(date, time),
-         {:ok, datetime} <- DateTime.from_naive(naive_datetime, timezone),
+         {:ok, datetime} <- DateTime.from_naive(naive_datetime, "America/Denver"),
          {:ok, utc_datetime} <- DateTime.shift_zone(datetime, "Etc/UTC") do
       {:ok, utc_datetime}
     else
@@ -278,7 +279,7 @@ defmodule ReceptionistWeb.CalendarLive do
     end)
   end
 
-  defp today_in_timezone("America/Denver" = _timezone) do
+  defp today_in_timezone(_timezone) do
     # Get current UTC time and adjust for Mountain Time
     utc_now = DateTime.utc_now()
 
@@ -293,17 +294,9 @@ defmodule ReceptionistWeb.CalendarLive do
     DateTime.to_date(mountain_time)
   end
 
-  defp today_in_timezone(_timezone) do
-    # Fallback for other timezones - just use UTC
-    Date.utc_today()
-  end
-
-  defp date_to_datetime(date, "America/Denver" = _timezone, :start) do
+  defp date_to_datetime(date, _timezone, :start) do
     # Mountain Time is UTC-7 in standard time, UTC-6 in daylight time
     # For simplicity, we'll use UTC-6 for summer months (Mar-Nov) and UTC-7 for winter
-    # This is a rough approximation since we don't have a full timezone database
-
-    # Determine offset based on month
     offset_hours = if date.month >= 3 and date.month <= 10, do: 6, else: 7
 
     # Create the DateTime at midnight in Mountain Time, then adjust to UTC
@@ -311,11 +304,9 @@ defmodule ReceptionistWeb.CalendarLive do
     DateTime.add(local_midnight, offset_hours * 3600, :second)
   end
 
-  defp date_to_datetime(date, "America/Denver" = _timezone, :end) do
+  defp date_to_datetime(date, _timezone, :end) do
     # Mountain Time is UTC-7 in standard time, UTC-6 in daylight time
     # For simplicity, we'll use UTC-6 for summer months (Mar-Nov) and UTC-7 for winter
-
-    # Determine offset based on month
     offset_hours = if date.month >= 3 and date.month <= 10, do: 6, else: 7
 
     # Create the DateTime at 23:59:59 in Mountain Time, then adjust to UTC
@@ -323,25 +314,15 @@ defmodule ReceptionistWeb.CalendarLive do
     DateTime.add(local_end, offset_hours * 3600, :second)
   end
 
-  defp date_to_datetime(date, _timezone, :start) do
-    # Fallback for other timezones - just use UTC
-    {:ok, dt} = DateTime.new(date, ~T[00:00:00], "Etc/UTC")
-    dt
-  end
-
-  defp date_to_datetime(date, _timezone, :end) do
-    # Fallback for other timezones - just use UTC
-    {:ok, dt} = DateTime.new(date, ~T[23:59:59], "Etc/UTC")
-    dt
-  end
-
-  defp format_time(datetime, timezone) do
-    # Convert from UTC to the user's timezone for display
+  defp format_time(datetime, _timezone) do
+    # Convert from UTC to Mountain Time for display
     local_datetime =
-      case DateTime.shift_zone(datetime, timezone) do
+      case DateTime.shift_zone(datetime, "America/Denver") do
         {:ok, local} -> local
-        # Fallback to UTC if timezone conversion fails
-        {:error, _} -> datetime
+        # Fallback with manual offset if timezone conversion fails
+        {:error, _} -> 
+          offset_hours = if datetime.month >= 3 and datetime.month <= 10, do: -6, else: -7
+          DateTime.add(datetime, offset_hours * 3600, :second)
       end
 
     hour = local_datetime.hour
@@ -366,18 +347,22 @@ defmodule ReceptionistWeb.CalendarLive do
     Calendar.strftime(date, "%a %b %-d")
   end
 
-  defp calculate_event_position(event, timezone) do
-    # Convert UTC times to local timezone for display positioning
+  defp calculate_event_position(event, _timezone) do
+    # Convert UTC times to Mountain Time for display positioning
     local_start =
-      case DateTime.shift_zone(event.start_time, timezone) do
+      case DateTime.shift_zone(event.start_time, "America/Denver") do
         {:ok, local} -> local
-        {:error, _} -> event.start_time
+        {:error, _} -> 
+          offset_hours = if event.start_time.month >= 3 and event.start_time.month <= 10, do: -6, else: -7
+          DateTime.add(event.start_time, offset_hours * 3600, :second)
       end
 
     local_end =
-      case DateTime.shift_zone(event.end_time, timezone) do
+      case DateTime.shift_zone(event.end_time, "America/Denver") do
         {:ok, local} -> local
-        {:error, _} -> event.end_time
+        {:error, _} -> 
+          offset_hours = if event.end_time.month >= 3 and event.end_time.month <= 10, do: -6, else: -7
+          DateTime.add(event.end_time, offset_hours * 3600, :second)
       end
 
     start_hour = local_start.hour + local_start.minute / 60
@@ -597,7 +582,6 @@ defmodule ReceptionistWeb.CalendarLive do
                       class="relative"
                       id="calendar-grid"
                       phx-hook="CurrentTimeIndicator"
-                      data-timezone={@timezone}
                     >
                       <%!-- Hour lines --%>
                       <%= for hour <- 0..23 do %>

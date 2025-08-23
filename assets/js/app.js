@@ -44,7 +44,6 @@ Hooks.PhoneInput = {
 
 Hooks.CurrentTimeIndicator = {
   mounted() {
-    this.timezone = this.el.dataset.timezone || "America/Denver";
     this.scrollContainer = document.getElementById("calendar-scroll-container");
 
     // Scroll to 7am on mount
@@ -172,8 +171,7 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {
-    _csrf_token: csrfToken,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    _csrf_token: csrfToken
   },
   hooks: { ...Hooks, ...colocatedHooks },
 })
