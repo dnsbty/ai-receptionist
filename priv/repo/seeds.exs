@@ -160,19 +160,14 @@ create_week_appointments = fn week_start, target_count, scheduled_slots, contact
           # Create full name for the contact
           full_name = "#{contact.first_name} #{contact.last_name}"
           
-          {:ok, event} = Scheduling.create_event(%{
+          # Create event with contact association in a single transaction
+          {:ok, _event} = Scheduling.create_event(%{
             name: full_name,
             description: "Appointment with #{full_name}",
             start_time: start_time,
-            end_time: end_time
+            end_time: end_time,
+            contact_ids: [contact.id]
           })
-          
-          # Associate the contact with the event
-          event
-          |> Receptionist.Repo.preload(:contacts)
-          |> Ecto.Changeset.change()
-          |> Ecto.Changeset.put_assoc(:contacts, [contact])
-          |> Receptionist.Repo.update!()
           
           # Track this slot to prevent future overlaps
           updated_slots = Map.update(

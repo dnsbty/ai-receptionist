@@ -209,9 +209,20 @@ defmodule Receptionist.Scheduling do
 
   """
   def create_event(attrs \\ %{}) do
-    %Event{}
-    |> Event.changeset(attrs)
-    |> Repo.insert()
+    # Extract contact_ids if provided
+    {contact_ids, event_attrs} = Map.pop(attrs, :contact_ids, [])
+    changeset = Event.changeset(%Event{}, event_attrs)
+
+    # If contact_ids are provided, associate them with the event
+    changeset =
+      if contact_ids != [] do
+        contacts = Repo.all(from c in Contact, where: c.id in ^contact_ids)
+        Ecto.Changeset.put_assoc(changeset, :contacts, contacts)
+      else
+        changeset
+      end
+
+    Repo.insert(changeset)
   end
 
   @doc """

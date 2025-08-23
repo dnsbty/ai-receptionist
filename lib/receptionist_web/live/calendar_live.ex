@@ -176,27 +176,17 @@ defmodule ReceptionistWeb.CalendarLive do
              event_params["end_time"],
              socket.assigns.timezone
            ) do
-      # Build params with atom keys for the changeset
+      # Build params with atom keys for the changeset, including contact_ids
       event_params = %{
         name: event_params["name"],
         description: event_params["description"],
         start_time: start_datetime,
-        end_time: end_datetime
+        end_time: end_datetime,
+        contact_ids: socket.assigns.selected_contact_ids
       }
 
       case Scheduling.create_event(event_params) do
-        {:ok, event} ->
-          # Associate contacts with the event
-          if length(socket.assigns.selected_contact_ids) > 0 do
-            contacts = Enum.map(socket.assigns.selected_contact_ids, &Scheduling.get_contact!/1)
-
-            event
-            |> Receptionist.Repo.preload(:contacts)
-            |> Ecto.Changeset.change()
-            |> Ecto.Changeset.put_assoc(:contacts, contacts)
-            |> Receptionist.Repo.update!()
-          end
-
+        {:ok, _event} ->
           {:noreply,
            socket
            |> assign(:show_create_modal, false)
