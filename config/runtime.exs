@@ -61,6 +61,15 @@ if config_env() == :prod do
     ],
     secret_key_base: secret_key_base
 
+  openai_api_key =
+    System.get_env("OPENAI_API_KEY") ||
+      raise """
+      environment variable OPENAI_API_KEY is missing.
+      You need to set this to use the AI scheduling features.
+      """
+
+  config :receptionist, :openai_api_key, openai_api_key
+
   # ## SSL Support
   #
   # To get SSL working, you will need to add the `https` key

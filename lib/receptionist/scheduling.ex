@@ -29,7 +29,7 @@ defmodule Receptionist.Scheduling do
 
       iex> list_contacts()
       [%Contact{}, ...]
-      
+
       iex> list_contacts(search: "john", page: 2)
       %{contacts: [...], page: 2, ...}
 
@@ -276,7 +276,7 @@ defmodule Receptionist.Scheduling do
   Finds the next available time slots starting from a given time.
 
   Takes a start_time (DateTime) and duration (30 or 60 minutes) and returns
-  the next three available time windows that have at least the requested duration.
+  the next ten available time windows that have at least the requested duration.
 
   Returns a list of {start_time, open_duration} tuples where open_duration
   is the total minutes available in that slot.
@@ -331,7 +331,7 @@ defmodule Receptionist.Scheduling do
       business_hours,
       events_by_date,
       [],
-      3
+      10
     )
   end
 

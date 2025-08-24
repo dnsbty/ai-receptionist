@@ -7,6 +7,7 @@ defmodule Receptionist.Scheduling.Contact do
     field :last_name, :string
     field :email, :string
     field :phone_number, :string
+    field :agent_conversation_id, :string
 
     many_to_many :events, Receptionist.Scheduling.Event,
       join_through: "events_contacts",
@@ -18,7 +19,7 @@ defmodule Receptionist.Scheduling.Contact do
   @doc false
   def changeset(contact, attrs) do
     contact
-    |> cast(attrs, [:first_name, :last_name, :email, :phone_number])
+    |> cast(attrs, [:first_name, :last_name, :email, :phone_number, :agent_conversation_id])
     |> validate_required([:first_name, :last_name, :email, :phone_number])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must have the @ sign and no spaces")
     |> validate_length(:email, max: 160)
