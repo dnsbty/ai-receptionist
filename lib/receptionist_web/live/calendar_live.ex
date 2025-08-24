@@ -5,6 +5,11 @@ defmodule ReceptionistWeb.CalendarLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    # Subscribe to calendar events PubSub topic
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Receptionist.PubSub, "calendar:events")
+    end
+
     # Always use Mountain Time
     timezone = "America/Denver"
     today = today_in_timezone(timezone)
@@ -136,6 +141,49 @@ defmodule ReceptionistWeb.CalendarLive do
   end
 
   @impl true
+  def handle_event("save_event", %{"event" => event_params}, socket) do
+    # Convert date and time inputs to UTC datetime
+    with {:ok, start_datetime} <-
+           parse_datetime(
+             event_params["start_date"],
+             event_params["start_time"],
+             socket.assigns.timezone
+           ),
+         {:ok, end_datetime} <-
+           parse_datetime(
+             event_params["end_date"],
+             event_params["end_time"],
+             socket.assigns.timezone
+           ) do
+      # Build params with atom keys for the changeset, including contact_ids
+      event_params = %{
+        name: event_params["name"],
+        description: event_params["description"],
+        start_time: start_datetime,
+        end_time: end_datetime,
+        contact_ids: socket.assigns.selected_contact_ids
+      }
+
+      case Scheduling.create_event(event_params) do
+        {:ok, _event} ->
+          # No need to reload events manually - PubSub will handle it
+          {:noreply,
+           socket
+           |> assign(:show_create_modal, false)
+           |> put_flash(:info, "Event created successfully")}
+
+        {:error, %Ecto.Changeset{} = changeset} ->
+          {:noreply,
+           socket
+           |> assign(form: to_form(changeset))
+           |> put_flash(:error, "Failed to create event. Please check the form.")}
+      end
+    else
+      _error -> {:noreply, put_flash(socket, :error, "Invalid date or time format")}
+    end
+  end
+
+  @impl true
   def handle_event("search_contacts", %{"value" => search}, socket) do
     {:noreply, assign(socket, :contact_search, search)}
   end
@@ -163,45 +211,20 @@ defmodule ReceptionistWeb.CalendarLive do
   end
 
   @impl true
-  def handle_event("save_event", %{"event" => event_params}, socket) do
-    # Convert date and time inputs to UTC datetime
-    with {:ok, start_datetime} <-
-           parse_datetime(
-             event_params["start_date"],
-             event_params["start_time"],
-             socket.assigns.timezone
-           ),
-         {:ok, end_datetime} <-
-           parse_datetime(
-             event_params["end_date"],
-             event_params["end_time"],
-             socket.assigns.timezone
-           ) do
-      # Build params with atom keys for the changeset, including contact_ids
-      event_params = %{
-        name: event_params["name"],
-        description: event_params["description"],
-        start_time: start_datetime,
-        end_time: end_datetime,
-        contact_ids: socket.assigns.selected_contact_ids
-      }
+  def handle_info({:event_created, new_event}, socket) do
+    # Check if the new event is visible in the current date range
+    week_dates = get_week_dates(socket.assigns.current_date)
+    first_date = List.first(week_dates)
+    last_date = List.last(week_dates)
+    start_of_range = date_to_datetime(first_date, socket.assigns.timezone, :start)
+    end_of_range = date_to_datetime(last_date, socket.assigns.timezone, :end)
 
-      case Scheduling.create_event(event_params) do
-        {:ok, _event} ->
-          {:noreply,
-           socket
-           |> assign(:show_create_modal, false)
-           |> load_events()
-           |> put_flash(:info, "Event created successfully")}
-
-        {:error, %Ecto.Changeset{} = changeset} ->
-          {:noreply,
-           socket
-           |> assign(form: to_form(changeset))
-           |> put_flash(:error, "Failed to create event. Please check the form.")}
-      end
+    # If the event falls within the current view range, reload events
+    if DateTime.compare(new_event.start_time, end_of_range) == :lt &&
+         DateTime.compare(new_event.end_time, start_of_range) == :gt do
+      {:noreply, load_events(socket)}
     else
-      _error -> {:noreply, put_flash(socket, :error, "Invalid date or time format")}
+      {:noreply, socket}
     end
   end
 
@@ -318,9 +341,11 @@ defmodule ReceptionistWeb.CalendarLive do
     # Convert from UTC to Mountain Time for display
     local_datetime =
       case DateTime.shift_zone(datetime, "America/Denver") do
-        {:ok, local} -> local
+        {:ok, local} ->
+          local
+
         # Fallback with manual offset if timezone conversion fails
-        {:error, _} -> 
+        {:error, _} ->
           offset_hours = if datetime.month >= 3 and datetime.month <= 10, do: -6, else: -7
           DateTime.add(datetime, offset_hours * 3600, :second)
       end
@@ -351,17 +376,25 @@ defmodule ReceptionistWeb.CalendarLive do
     # Convert UTC times to Mountain Time for display positioning
     local_start =
       case DateTime.shift_zone(event.start_time, "America/Denver") do
-        {:ok, local} -> local
-        {:error, _} -> 
-          offset_hours = if event.start_time.month >= 3 and event.start_time.month <= 10, do: -6, else: -7
+        {:ok, local} ->
+          local
+
+        {:error, _} ->
+          offset_hours =
+            if event.start_time.month >= 3 and event.start_time.month <= 10, do: -6, else: -7
+
           DateTime.add(event.start_time, offset_hours * 3600, :second)
       end
 
     local_end =
       case DateTime.shift_zone(event.end_time, "America/Denver") do
-        {:ok, local} -> local
-        {:error, _} -> 
-          offset_hours = if event.end_time.month >= 3 and event.end_time.month <= 10, do: -6, else: -7
+        {:ok, local} ->
+          local
+
+        {:error, _} ->
+          offset_hours =
+            if event.end_time.month >= 3 and event.end_time.month <= 10, do: -6, else: -7
+
           DateTime.add(event.end_time, offset_hours * 3600, :second)
       end
 

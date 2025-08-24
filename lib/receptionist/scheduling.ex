@@ -222,7 +222,23 @@ defmodule Receptionist.Scheduling do
         changeset
       end
 
-    Repo.insert(changeset)
+    case Repo.insert(changeset) do
+      {:ok, event} ->
+        # Preload contacts to have complete event data
+        event = Repo.preload(event, :contacts)
+
+        # Broadcast the new event to all subscribers
+        Phoenix.PubSub.broadcast(
+          Receptionist.PubSub,
+          "calendar:events",
+          {:event_created, event}
+        )
+
+        {:ok, event}
+
+      error ->
+        error
+    end
   end
 
   @doc """

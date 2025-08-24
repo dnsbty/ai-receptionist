@@ -6,10 +6,10 @@ defmodule Receptionist.Agent.Error do
   defstruct [:message, :type, :code]
 
   @type t :: %__MODULE__{
-    message: String.t(),
-    type: String.t() | nil,
-    code: String.t() | nil
-  }
+          message: String.t(),
+          type: String.t() | nil,
+          code: String.t() | nil
+        }
 
   @doc """
   Create an Error struct from an API error response.
