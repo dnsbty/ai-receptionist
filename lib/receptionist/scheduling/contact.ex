@@ -20,7 +20,7 @@ defmodule Receptionist.Scheduling.Contact do
   def changeset(contact, attrs) do
     contact
     |> cast(attrs, [:first_name, :last_name, :email, :phone_number, :agent_conversation_id])
-    |> validate_required([:first_name, :last_name, :email, :phone_number])
+    |> validate_required([:phone_number])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must have the @ sign and no spaces")
     |> validate_length(:email, max: 160)
     |> normalize_phone_number()

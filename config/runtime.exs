@@ -68,7 +68,25 @@ if config_env() == :prod do
       You need to set this to use the AI scheduling features.
       """
 
-  config :receptionist, :openai_api_key, openai_api_key
+  surge_api_key =
+    System.get_env("SURGE_API_KEY") ||
+      raise """
+      environment variable SURGE_API_KEY is missing.
+      You need to set this to be send messages.
+      """
+
+  surge_webhook_signing_secret =
+    System.get_env("SURGE_WEBHOOK_SIGNING_SECRET") ||
+      raise """
+      environment variable SURGE_WEBHOOK_SIGNING_SECRET is missing.
+      You need to set this to be able to receive incoming messages.
+      """
+
+  config :receptionist,
+    openai_api_key: openai_api_key,
+    surge_api_key: surge_api_key,
+    surge_base_url: System.get_env("SURGE_BASE_URL", "https://api.surge.app"),
+    surge_webhook_signing_secret: surge_webhook_signing_secret
 
   # ## SSL Support
   #

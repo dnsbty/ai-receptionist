@@ -90,12 +90,34 @@ defmodule Receptionist.Scheduling do
   def get_contact!(id), do: Repo.get!(Contact, id)
 
   @doc """
+  Gets a single contact by their phone number.
+
+  Returns `nil` if the Contact does not exist.
+  """
+  def get_contact_by_phone(phone_number) do
+    Repo.get_by(Contact, phone_number: phone_number)
+  end
+
+  @doc """
   Gets a single contact with events preloaded.
   """
   def get_contact_with_events!(id) do
     Contact
     |> Repo.get!(id)
     |> Repo.preload(events: from(e in Event, order_by: [desc: e.start_time]))
+  end
+
+  @doc """
+  Gets a contact by phone number or creates one if not found.
+  """
+  def get_or_create_contact_by_phone_number(phone_number) do
+    case get_contact_by_phone(phone_number) do
+      nil ->
+        create_contact(%{phone_number: phone_number})
+
+      contact ->
+        {:ok, contact}
+    end
   end
 
   @doc """

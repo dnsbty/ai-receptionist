@@ -63,6 +63,9 @@ defmodule Receptionist.Agent do
     "ignore_message" tool to not respond
   - Only confirm the appointment one time. After that, just end the conversation
     politely.
+  - Because you're using SMS, don't provide updates like "Proceeding to book the
+    appointment now.". Just book the appointment and return the ONE message that
+    should be sent to the contact.
 
   Here is an example of how to respond when someone wants to book an appointment
 
@@ -228,11 +231,10 @@ defmodule Receptionist.Agent do
   end
 
   defp handle_response(response, contact) do
-    IO.inspect(response["output"], label: "AI Response")
-
     case response do
       %{"output" => output} ->
         message = Enum.find(output, fn item -> item["type"] in ["function_call", "message"] end)
+        IO.inspect(message, label: "AI Response")
         handle_assistant_message(message, contact)
 
       _ ->

@@ -63,7 +63,11 @@ config :phoenix, :json_library, Jason
 # Configure timezone database
 config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
 
-config :receptionist, openai_api_key: System.get_env("OPENAI_API_KEY")
+config :receptionist,
+  openai_api_key: System.get_env("OPENAI_API_KEY"),
+  surge_api_key: System.get_env("SURGE_API_KEY"),
+  surge_base_url: System.get_env("SURGE_BASE_URL", "https://api.surge.app"),
+  surge_webhook_signing_secret: System.get_env("SURGE_WEBHOOK_SIGNING_SECRET")
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
