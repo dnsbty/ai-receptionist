@@ -7,6 +7,8 @@ defmodule Receptionist.Application do
 
   @impl true
   def start(_type, _args) do
+    Receptionist.Release.migrate()
+
     children = [
       ReceptionistWeb.Telemetry,
       Receptionist.Repo,

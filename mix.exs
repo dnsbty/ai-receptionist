@@ -66,7 +66,7 @@ defmodule Receptionist.MixProject do
       {:jason, "~> 1.2"},
       {:ex_phone_number, "~> 0.4"},
       {:tzdata, "~> 1.1"},
-      {:surge_api, github: "surgeapi/surge-elixir"},
+      {:surge_api, "~> 0.1.0"},
 
       # Start at the end so that everything else is ready first
       {:dns_cluster, "~> 0.2.0"},

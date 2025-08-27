@@ -1,0 +1,45 @@
+app = "receptionist"
+primary_region = "den"
+kill_signal = "SIGTERM"
+kill_timeout = "5s"
+
+[experimental]
+  auto_rollback = true
+
+[deploy]
+  # release_command = "/app/bin/migrate"
+
+[mounts]
+  source="receptionist_db"
+  destination="/mnt/db"
+
+[env]
+  DATABASE_PATH = "/mnt/db/receptionist_prod.db"
+  PHX_HOST = "receptionist.fly.dev"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 4000
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 2500
+    soft_limit = 2000
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "20s"
+    restart_limit = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

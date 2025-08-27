@@ -51,6 +51,12 @@ defmodule Receptionist.Agent.OpenAi do
               ],
           optional(:model) => String.t(),
           optional(:parallel_tool_calls) => boolean(),
+          optional(:reasoning) => %{
+            optional(:effort) => :minimal | :low | :medium | :high
+          },
+          optional(:text) => %{
+            optional(:verbosity) => :low | :medium | :high
+          },
           optional(:tools) => [
             %{
               :name => String.t(),
