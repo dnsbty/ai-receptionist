@@ -224,6 +224,7 @@ defmodule Receptionist.Agent do
     """
   end
 
+  @spec handle_response(map, %Contact{}) :: {:ok, String.t() | nil} | {:error, String.t()}
   defp handle_response(response, contact) do
     case response do
       %{"output" => output} ->
