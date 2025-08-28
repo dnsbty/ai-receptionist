@@ -140,7 +140,8 @@ defmodule ReceptionistWeb.ContactsLive do
                         <div class="flex-shrink-0">
                           <div class="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center">
                             <span class="text-white font-medium">
-                              {String.first(contact.first_name)}{String.first(contact.last_name)}
+                              {contact.first_name && String.first(contact.first_name)}{contact.last_name &&
+                                String.first(contact.last_name)}
                             </span>
                           </div>
                         </div>
@@ -152,9 +153,6 @@ defmodule ReceptionistWeb.ContactsLive do
                             {contact.email}
                           </div>
                         </div>
-                      </div>
-                      <div class="text-sm text-gray-500 dark:text-gray-400">
-                        {format_phone(contact.phone_number)}
                       </div>
                     </div>
                   </.link>
@@ -227,12 +225,6 @@ defmodule ReceptionistWeb.ContactsLive do
                   <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
                   <dd class="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
                     {@contact.email}
-                  </dd>
-                </div>
-                <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</dt>
-                  <dd class="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                    {format_phone(@contact.phone_number)}
                   </dd>
                 </div>
               </dl>
@@ -368,9 +360,6 @@ defmodule ReceptionistWeb.ContactsLive do
                   </div>
                   <div class="sm:col-span-2">
                     <.input field={@form[:email]} type="email" label="Email" />
-                  </div>
-                  <div class="sm:col-span-2">
-                    <.input field={@form[:phone_number]} type="text" label="Phone Number" />
                   </div>
                 </div>
 
